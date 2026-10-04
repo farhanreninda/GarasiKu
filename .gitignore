@@ -8,6 +8,11 @@ local.properties
 # Log/OS Files
 *.log
 
+# Markdown notes/docs
+*.md
+!README.md
+!readme.md
+
 # Android Studio generated files and folders
 captures/
 .externalNativeBuild/

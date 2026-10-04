@@ -1,0 +1,44 @@
+<resources>
+    <string name="app_name">Vehicle Maintenance Pro</string>
+    <string name="nav_dashboard">Beranda</string>
+    <string name="nav_vehicles">Garasi</string>
+    <string name="nav_service">Servis</string>
+    <string name="nav_statistics">Biaya</string>
+    <string name="nav_settings">Profil</string>
+    <string name="nav_notifications">Notifikasi</string>
+    <string name="action_add_record">Tambah catatan</string>
+    <string name="action_add_vehicle">Tambah kendaraan</string>
+    <string name="action_add_reminder">Tambah pengingat</string>
+    <string name="action_retry">Coba lagi</string>
+    <string name="dashboard_greeting">Halo, %1$s</string>
+    <string name="dashboard_subtitle">Ringkasan kondisi kendaraan hari ini</string>
+    <string name="dashboard_default_user">Pengguna</string>
+    <string name="dashboard_active_vehicle">Kendaraan aktif</string>
+    <string name="dashboard_no_vehicle_title">Belum ada kendaraan</string>
+    <string name="dashboard_no_vehicle_message">Tambahkan kendaraan pertama untuk mulai melacak servis, oli, pajak, STNK, dan biaya.</string>
+    <string name="dashboard_next_service">Servis berikutnya</string>
+    <string name="dashboard_next_oil">Ganti oli berikutnya</string>
+    <string name="dashboard_tax">Pajak kendaraan</string>
+    <string name="dashboard_registration">STNK</string>
+    <string name="dashboard_insurance">Asuransi</string>
+    <string name="dashboard_monthly_expense">Pengeluaran bulan ini</string>
+    <string name="dashboard_nearest_reminder">Pengingat terdekat</string>
+    <string name="dashboard_no_reminder">Belum ada pengingat</string>
+    <string name="dashboard_unknown_value">Belum tersedia</string>
+    <string name="dashboard_vehicle_photo_description">Foto kendaraan aktif</string>
+    <string name="dashboard_vehicle_photo_placeholder">Foto belum tersedia</string>
+    <string name="dashboard_odometer_value">%1$,d km</string>
+    <string name="dashboard_vehicle_year_plate">%1$s - %2$s</string>
+    <string name="dashboard_due_odometer">Pada %1$,d km</string>
+    <string name="dashboard_metric_not_ready">Belum dicatat</string>
+    <string name="dashboard_error_title">Data dashboard belum bisa dimuat</string>
+    <string name="content_desc_dashboard">Buka dashboard</string>
+    <string name="content_desc_vehicles">Buka kendaraan</string>
+    <string name="content_desc_service">Buka servis</string>
+    <string name="content_desc_statistics">Buka statistik</string>
+    <string name="content_desc_settings">Buka profil</string>
+    <string name="content_desc_notifications">Buka notifikasi</string>
+</resources>
+
+
+
