@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
@@ -90,7 +91,7 @@ fun PageHeader(
         } }
         val action: @Composable () -> Unit = {
             if (actionLabel != null && onAction != null) {
-                FilledTonalButton(onClick = onAction, shape = MaterialTheme.shapes.small) { Text(actionLabel) }
+                Button(onClick = onAction, modifier = if (stack) Modifier.fillMaxWidth() else Modifier, shape = MaterialTheme.shapes.small) { Text(actionLabel) }
             }
         }
         if (stack) {
@@ -142,7 +143,7 @@ fun PanelCard(
         shape = RoundedCornerShape(Dimens.CardRadius),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = null,
     ) {
         Column(
             modifier = Modifier.padding(Dimens.SpaceLg),
@@ -184,7 +185,7 @@ fun StatusPill(
     Text(
         text = text,
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(containerColor)
             .padding(horizontal = Dimens.SpaceMd, vertical = Dimens.SpaceXs),
         style = MaterialTheme.typography.labelMedium,
@@ -224,7 +225,7 @@ fun EmptyPrompt(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (actionLabel != null && onAction != null) {
-                FilledTonalButton(onClick = onAction, shape = MaterialTheme.shapes.small) {
+                FilledTonalButton(onClick = onAction, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) {
                     Text(text = actionLabel)
                 }
             }
@@ -254,9 +255,9 @@ fun AppFormDialog(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Box(Modifier.weight(1f, fill = false).padding(horizontal = 20.dp, vertical = 16.dp)) { text() }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    FlowRow(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        dismissButton()
-                        confirmButton()
+                    AppActionRow(Modifier.padding(16.dp)) { actionModifier ->
+                        Box(actionModifier, propagateMinConstraints = true) { dismissButton() }
+                        Box(actionModifier, propagateMinConstraints = true) { confirmButton() }
                     }
                 }
             }

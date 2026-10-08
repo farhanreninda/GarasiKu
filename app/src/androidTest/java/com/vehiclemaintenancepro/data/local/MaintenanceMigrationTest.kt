@@ -23,16 +23,23 @@ class MaintenanceMigrationTest {
             db.execSQL("CREATE TABLE activity_logs (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, vehicle_id INTEGER, title TEXT NOT NULL, description TEXT, cost_amount INTEGER, occurred_at_millis INTEGER NOT NULL)")
             db.execSQL("CREATE INDEX index_activity_logs_vehicle_id_occurred_at_millis ON activity_logs(vehicle_id,occurred_at_millis)")
             db.execSQL("INSERT INTO activity_logs(vehicle_id,title,description,cost_amount,occurred_at_millis) VALUES(1,'Oli lama','Catatan asli',64500,1)")
+            db.execSQL("INSERT INTO vehicles(vehicle_type,brand,model,license_plate,transmission_type,fuel_type,odometer_km,purchase_price,note,is_active,is_archived,created_at_millis,updated_at_millis) VALUES('Motorcycle','Honda','PCX','QC MIGRATION','Cvt','Gasoline',19537,31775000,'Catatan asli',1,0,1,1)")
             db.version = 3
         }
         val room = Room.databaseBuilder(context, VehicleMaintenanceDatabase::class.java, name)
-            .addMigrations(VehicleMaintenanceDatabase.MIGRATION_3_4).build()
+            .addMigrations(VehicleMaintenanceDatabase.MIGRATION_3_4, VehicleMaintenanceDatabase.MIGRATION_4_5).build()
         try {
             val old = room.activityLogDao().observeRecentLogsForVehicle(1, 10).first().single().toDomain()
             assertEquals("Catatan asli", old.description)
             assertEquals(64_500L, old.costAmount)
             assertNull(old.category)
             assertTrue(old.workItems.isEmpty())
+            val vehicle = room.vehicleDao().observeVehicles().first().single().toDomain()
+            assertEquals(31_775_000L, vehicle.purchasePrice)
+            assertEquals("Catatan asli", vehicle.note)
+            assertNull(vehicle.otrPrice)
+            assertNull(vehicle.orderDate)
+            assertTrue(vehicle.accessories.isEmpty())
             val items = listOf(MaintenanceWorkItem(MaintenanceComponent.EngineOil, MaintenanceAction.Replace, "Shell 10W-40", 2_000, 3))
             assertEquals(items, MaintenanceWorkItemJson.decode(MaintenanceWorkItemJson.encode(items)))
         } finally {

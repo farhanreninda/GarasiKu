@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Vehicle Maintenance Pro</string>
+    <string name="app_name">GarasiKu</string>
     <string name="nav_dashboard">Beranda</string>
     <string name="nav_vehicles">Garasi</string>
     <string name="nav_service">Servis</string>

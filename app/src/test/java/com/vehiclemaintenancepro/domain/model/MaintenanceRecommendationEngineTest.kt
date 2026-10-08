@@ -70,4 +70,24 @@ class MaintenanceRecommendationEngineTest {
         assertEquals(1_000L, result.dueOdometerKm)
         assertEquals(LocalDate.of(2026, 10, 10), result.dueDate)
     }
+    @Test fun `unknown history does not claim a confirmed overdue job and custom intervals are explicit`() {
+        val unknown = MaintenanceRecommendationEngine.recommendationsFor(vehicle(), emptyList(), today = today)
+            .first { it.component == MaintenanceComponent.AirFilter }
+        assertTrue(unknown.description.contains("Belum ada catatan"))
+        assertFalse(unknown.description.contains("Sudah jatuh tempo"))
+        val history = listOf(record(1, "2026-09-12", 19_537,
+            MaintenanceWorkItem(MaintenanceComponent.EngineOil, MaintenanceAction.Replace, intervalKm = 2_000)))
+        val custom = MaintenanceRecommendationEngine.recommendationsFor(vehicle(), emptyList(), history, today)
+            .first { it.component == MaintenanceComponent.EngineOil }
+        assertEquals(21_537L, custom.dueOdometerKm)
+        assertNull(custom.dueDate)
+        assertTrue(custom.description.contains("Interval pilihan pengguna: 2000 km"))
+    }
+
+    @Test fun `PCX 150 and newer unverified PCX generations do not inherit K1Z intervals`() {
+        assertFalse(MaintenanceRecommendationEngine.isPcx160(vehicle("PCX 150")))
+        assertTrue(MaintenanceRecommendationEngine.recommendationsFor(vehicle("PCX 150"), emptyList()).isEmpty())
+        assertFalse(MaintenanceRecommendationEngine.isPcx160(vehicle().copy(year = 2025)))
+    }
+
 }

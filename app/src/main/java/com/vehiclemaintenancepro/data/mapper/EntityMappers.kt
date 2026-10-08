@@ -35,6 +35,10 @@ fun VehicleEntity.toDomain(): Vehicle = Vehicle(
     purchaseDate = purchaseDateEpochDay?.let(LocalDate::ofEpochDay),
     note = note,
     isActive = isActive,
+    otrPrice = otrPrice,
+    dealer = dealer,
+    orderDate = orderDateEpochDay?.let(LocalDate::ofEpochDay),
+    accessories = VehicleAccessoryJson.decode(accessoriesJson),
 )
 
 fun MaintenanceReminderEntity.toDomain(): MaintenanceReminder = MaintenanceReminder(

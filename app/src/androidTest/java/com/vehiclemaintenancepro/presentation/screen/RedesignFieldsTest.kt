@@ -44,10 +44,14 @@ class RedesignFieldsTest {
         composeRule.setContent { VehicleMaintenanceProTheme(darkTheme = false) {
             StatisticsScreen(StatisticsUiState(isLoading = false, vehicles = listOf(vehicle), activities = listOf(activity)))
         } }
-        composeRule.onNodeWithText("Rp0").assertExists()
+        composeRule.onAllNodesWithText("Rp0")[0].assertExists()
         val label = month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag("id-ID")))
-        composeRule.onNodeWithContentDescription("$label, Rp150.000").performScrollTo().performClick()
-        composeRule.onNodeWithText("Rp150.000").assertExists()
+        composeRule.onNode(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange))
+            .performScrollToNode(hasContentDescription("$label, Rp150.000"))
+        composeRule.onNodeWithContentDescription("$label, Rp150.000").performClick()
+        composeRule.onAllNodesWithText("Rp150.000")[0].assertExists()
+        composeRule.onNode(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange))
+            .performScrollToNode(hasText("Biaya $label"))
         composeRule.onNodeWithText("Biaya $label").assertExists()
     }
 }

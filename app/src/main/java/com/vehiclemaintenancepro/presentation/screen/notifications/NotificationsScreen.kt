@@ -119,7 +119,7 @@ private fun ErrorState(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            Button(onClick = onBack) {
+            Button(onClick = onBack, modifier = Modifier.fillMaxWidth().padding(horizontal = Dimens.SpaceLg)) {
                 Text(text = "Kembali")
             }
         }
@@ -140,17 +140,17 @@ private fun NotificationsContent(
             end = Dimens.SpaceLg,
             bottom = 24.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             NotificationsHeader(
                 count = state.reminders.size,
                 vehicle = state.activeVehicle,
-                onBack = onBack,
                 onOpenService = onOpenService,
             )
         }
 
+        item { com.vehiclemaintenancepro.presentation.component.NotificationTestPanel(state.notificationsEnabled) }
         when {
             state.activeVehicle == null -> item {
                 EmptyPrompt(
@@ -162,13 +162,14 @@ private fun NotificationsContent(
                 )
             }
             state.reminders.isEmpty() -> item {
-                EmptyPrompt(
-                    icon = Icons.Rounded.Notifications,
-                    title = "Tidak ada notifikasi",
-                    message = "Pengingat akan muncul menjelang tanggal, saat terlambat, atau ketika kilometer tercapai.",
-                    actionLabel = "Atur pengingat",
-                    onAction = onOpenService,
-                )
+                PanelCard {
+                    Text("Belum ada pengingat yang perlu perhatian", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Jadwal tersimpan muncul saat memasuki H- yang dipilih atau batas kilometer tercapai.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    androidx.compose.material3.FilledTonalButton(onClick = onOpenService, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Text("Atur pengingat") }
+                }
             }
             else -> items(
                 items = state.reminders,
@@ -188,65 +189,22 @@ private fun NotificationsContent(
 private fun NotificationsHeader(
     count: Int,
     vehicle: Vehicle?,
-    onBack: () -> Unit,
     onOpenService: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Kembali",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Pengingat",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = vehicle?.displayName() ?: "Kendaraan aktif",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+    PanelCard(containerColor = MaterialTheme.colorScheme.surface) {
+        Text(vehicle?.displayName() ?: "Kendaraan aktif", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        vehicle?.let { Text("${it.licensePlate} • ${Formatters.odometer(it.odometerKm)}",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            IconBadge(Icons.Rounded.Notifications, null)
+            Text(if (count == 0) "Belum ada pengingat mendesak" else "$count perlu perhatian",
+                style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
         }
-
-        PanelCard(containerColor = MaterialTheme.colorScheme.surface) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconBadge(
-                    imageVector = Icons.Rounded.Notifications,
-                    contentDescription = null,
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "$count perlu perhatian",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "Pengingat yang sudah masuk H-7, hari H, lewat, atau odometer tercapai.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            TextButton(onClick = onOpenService) { Text("Kelola jadwal perawatan") }
-        }
+        Spacer(Modifier.height(12.dp))
+        androidx.compose.material3.OutlinedButton(onClick = onOpenService, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Text("Kelola jadwal perawatan") }
     }
 }
 

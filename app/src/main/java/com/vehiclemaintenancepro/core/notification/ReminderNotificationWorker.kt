@@ -21,6 +21,9 @@ import com.vehiclemaintenancepro.data.mapper.toDomain
 import com.vehiclemaintenancepro.domain.model.MaintenanceReminder
 import com.vehiclemaintenancepro.domain.model.ReminderAlertPolicy
 import com.vehiclemaintenancepro.domain.model.Vehicle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import com.vehiclemaintenancepro.data.repository.SettingsRepositoryImpl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -39,10 +42,17 @@ class ReminderNotificationWorker(
             .addMigrations(
                 VehicleMaintenanceDatabase.MIGRATION_1_2,
                 VehicleMaintenanceDatabase.MIGRATION_2_3,
+                VehicleMaintenanceDatabase.MIGRATION_3_4,
+                VehicleMaintenanceDatabase.MIGRATION_4_5,
             )
             .build()
 
         try {
+            val settings = SettingsRepositoryImpl(applicationContext).observeSettings().first()
+            if (ReminderNotificationScheduler.blockedReason(applicationContext, settings.notificationsEnabled) != null) {
+                NotificationManagerCompat.from(applicationContext).cancel(REMINDER_NOTIFICATION_ID)
+                return@withContext Result.success()
+            }
             val vehicles = database.vehicleDao()
                 .getVehicles()
                 .map { it.toDomain() }
@@ -54,6 +64,7 @@ class ReminderNotificationWorker(
                     ReminderAlertPolicy.shouldAlert(
                         reminder = reminder,
                         vehicle = vehicles[reminder.vehicleId],
+                        settings = settings,
                     )
                 }
 
@@ -62,8 +73,12 @@ class ReminderNotificationWorker(
                     reminders = reminders,
                     vehicles = vehicles,
                 )
+            } else {
+                NotificationManagerCompat.from(applicationContext).cancel(REMINDER_NOTIFICATION_ID)
             }
             Result.success()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             Result.retry()
         } finally {
@@ -90,7 +105,9 @@ class ReminderNotificationWorker(
                 firstReminder.alertLabel(),
             ).joinToString(separator = " - ")
         } else {
-            "Ada jadwal servis, oli, pajak, atau STNK yang perlu dicek."
+            reminders.take(5).joinToString("\n") { reminder ->
+                "${vehicles[reminder.vehicleId]?.displayName() ?: "Kendaraan"} • ${reminder.title}: ${reminder.alertLabel()}"
+            } + if (reminders.size > 5) "\n+${reminders.size - 5} pengingat lainnya" else ""
         }
 
         val pendingIntent = PendingIntent.getActivity(
@@ -112,6 +129,7 @@ class ReminderNotificationWorker(
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
@@ -123,16 +141,17 @@ class ReminderNotificationWorker(
     }
 
     private fun canPostNotifications(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        NotificationManagerCompat.from(applicationContext).areNotificationsEnabled() &&
+        (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(
                 applicationContext,
                 Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
+            ) == PackageManager.PERMISSION_GRANTED)
 
     private fun Vehicle.displayName(): String = listOf(brand, model)
         .filter { it.isNotBlank() }
         .joinToString(separator = " ")
-        .ifBlank { "Kendaraan" }
+        .ifBlank { "Kendaraan" } + " • $licensePlate"
 
     private fun MaintenanceReminder.alertLabel(): String {
         dueDate?.let { date ->

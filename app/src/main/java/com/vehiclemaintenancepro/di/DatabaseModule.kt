@@ -30,6 +30,7 @@ object DatabaseModule {
             VehicleMaintenanceDatabase.MIGRATION_1_2,
             VehicleMaintenanceDatabase.MIGRATION_2_3,
             VehicleMaintenanceDatabase.MIGRATION_3_4,
+            VehicleMaintenanceDatabase.MIGRATION_4_5,
         )
         .build()
 

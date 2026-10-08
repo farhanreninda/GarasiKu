@@ -26,7 +26,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = providers.gradleProperty("debugApplicationIdSuffix").getOrElse(".debug")
-            if (applicationIdSuffix == ".qc") manifestPlaceholders["appLabel"] = "Vehicle Maintenance Pro QC"
+            if (applicationIdSuffix == ".qc") manifestPlaceholders["appLabel"] = "GarasiKu QC"
             versionNameSuffix = "-debug"
         }
         release {
@@ -42,7 +42,7 @@ android {
             applicationIdSuffix = ".qc"
             versionNameSuffix = "-qc"
             signingConfig = signingConfigs.getByName("debug")
-            manifestPlaceholders["appLabel"] = "Vehicle Maintenance Pro QC"
+            manifestPlaceholders["appLabel"] = "GarasiKu QC"
             matchingFallbacks += "release"
         }
     }

@@ -70,7 +70,7 @@ class DashboardRepositoryImpl @Inject constructor(
                         averageFuelConsumptionKmPerLiter = null,
                         nearestReminder = reminders.nearest(),
                         alertReminderCount = reminders.count { reminder ->
-                            ReminderAlertPolicy.shouldAlert(reminder, selectedVehicle)
+                            ReminderAlertPolicy.shouldAlert(reminder, selectedVehicle, settings = settings)
                         },
                     ),
                 )

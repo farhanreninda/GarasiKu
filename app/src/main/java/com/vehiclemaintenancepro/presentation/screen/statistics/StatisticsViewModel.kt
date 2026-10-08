@@ -29,7 +29,7 @@ class StatisticsViewModel @Inject constructor(
         vehicleRepository.observeVehicles(),
         maintenanceRepository.observePendingReminders(),
         maintenanceRepository.observeExpensesBetween(
-            month.minusMonths(5).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli(),
+            0L,
             month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli(),
         ),
         selectedVehicleId,

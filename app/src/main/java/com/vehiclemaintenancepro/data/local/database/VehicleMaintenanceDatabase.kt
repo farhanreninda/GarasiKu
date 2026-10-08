@@ -17,7 +17,7 @@ import com.vehiclemaintenancepro.data.local.entity.VehicleEntity
         MaintenanceReminderEntity::class,
         ActivityLogEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class VehicleMaintenanceDatabase : RoomDatabase() {
@@ -26,6 +26,15 @@ abstract class VehicleMaintenanceDatabase : RoomDatabase() {
     abstract fun activityLogDao(): ActivityLogDao
 
     companion object {
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE vehicles ADD COLUMN otr_price INTEGER")
+                db.execSQL("ALTER TABLE vehicles ADD COLUMN dealer TEXT")
+                db.execSQL("ALTER TABLE vehicles ADD COLUMN order_date_epoch_day INTEGER")
+                db.execSQL("ALTER TABLE vehicles ADD COLUMN accessories_json TEXT NOT NULL DEFAULT '[]'")
+            }
+        }
+
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE activity_logs ADD COLUMN category TEXT")

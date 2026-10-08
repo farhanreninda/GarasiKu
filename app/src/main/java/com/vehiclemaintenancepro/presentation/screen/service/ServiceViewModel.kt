@@ -1,5 +1,8 @@
 package com.vehiclemaintenancepro.presentation.screen.service
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import com.vehiclemaintenancepro.core.notification.ReminderNotificationScheduler
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vehiclemaintenancepro.core.common.SaveState
@@ -30,6 +33,7 @@ import kotlinx.coroutines.withContext
 class ServiceViewModel @Inject constructor(
     vehicleRepository: VehicleRepository,
     private val maintenanceRepository: MaintenanceRepository,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val notice = MutableStateFlow<String?>(null)
     private val saving = MutableStateFlow(SaveState())
@@ -102,6 +106,7 @@ class ServiceViewModel @Inject constructor(
                 }
                 saving.value = SaveState()
                 notice.value = successMessage
+                ReminderNotificationScheduler.checkNow(context)
                 onSuccess()
             } catch (cancelled: CancellationException) {
                 throw cancelled

@@ -1,15 +1,15 @@
 package com.vehiclemaintenancepro
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vehiclemaintenancepro.domain.model.AppSettings
+import com.vehiclemaintenancepro.domain.model.ThemeMode
 import androidx.activity.enableEdgeToEdge
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import android.graphics.Color
 import com.vehiclemaintenancepro.presentation.navigation.VehicleMaintenanceRoot
 import com.vehiclemaintenancepro.presentation.theme.VehicleMaintenanceProTheme
@@ -17,9 +17,9 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @javax.inject.Inject lateinit var settingsRepository: com.vehiclemaintenancepro.domain.repository.SettingsRepository
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestNotificationPermissionIfNeeded()
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(
                 scrim = Color.TRANSPARENT,
@@ -31,28 +31,27 @@ class MainActivity : ComponentActivity() {
             ),
         )
         setContent {
-            VehicleMaintenanceProTheme(darkTheme = false) {
+            val settingsFlow = remember { settingsRepository.observeSettings() }
+            val settings by settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
+            val dark = when (settings.themeMode) {
+                ThemeMode.System -> isSystemInDarkTheme()
+                ThemeMode.Light -> false
+                ThemeMode.Dark -> true
+            }
+            LaunchedEffect(dark) {
+                val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT)
+                    else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            VehicleMaintenanceProTheme(darkTheme = dark) {
                 VehicleMaintenanceRoot()
             }
         }
     }
 
-    private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val permissionGranted = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!permissionGranted) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                NOTIFICATION_PERMISSION_REQUEST_CODE,
-            )
-        }
+    override fun onResume() {
+        super.onResume()
+        com.vehiclemaintenancepro.core.notification.ReminderNotificationScheduler.checkNow(this)
     }
 
-    private companion object {
-        const val NOTIFICATION_PERMISSION_REQUEST_CODE = 2026
-    }
 }

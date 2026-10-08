@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,6 +24,9 @@ import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.TwoWheeler
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +69,8 @@ import com.vehiclemaintenancepro.domain.model.MaintenanceReminderCreateRequest
 import com.vehiclemaintenancepro.domain.model.ReminderType
 import com.vehiclemaintenancepro.domain.model.Vehicle
 import com.vehiclemaintenancepro.domain.model.VehicleType
+import com.vehiclemaintenancepro.presentation.component.AppActionRow
+import com.vehiclemaintenancepro.presentation.component.FilterOptions
 import com.vehiclemaintenancepro.presentation.component.AppBackground
 import com.vehiclemaintenancepro.presentation.component.AppLoadingState
 import com.vehiclemaintenancepro.presentation.component.AppFormDialog
@@ -93,9 +100,15 @@ fun ServiceRoute(
     val saveState by viewModel.saveState.collectAsStateWithLifecycle()
     var showReminderDialog by rememberSaveable { mutableStateOf(false) }
     var showActivityDialog by rememberSaveable { mutableStateOf(false) }
+    var reminderDraft by rememberSaveable(stateSaver = androidx.compose.runtime.saveable.Saver<MaintenanceReminderCreateRequest?, List<String>>(
+        save = { draft -> draft?.let { listOf(it.vehicleId.toString(), it.type.name, it.title, it.dueDate?.toString().orEmpty(), it.dueOdometerKm?.toString().orEmpty()) } ?: emptyList() },
+        restore = { fields -> if (fields.isEmpty()) null else MaintenanceReminderCreateRequest(fields[0].toLong(), ReminderType.valueOf(fields[1]), fields[2],
+            fields[3].takeIf(String::isNotEmpty)?.let(LocalDate::parse), fields[4].toLongOrNull()) },
+    )) { mutableStateOf<MaintenanceReminderCreateRequest?>(null) }
 
     LaunchedEffect(addReminderRequest) {
         if (addReminderRequest > 0) {
+            reminderDraft = null
             showReminderDialog = true
             onReminderRequestConsumed()
         }
@@ -111,10 +124,10 @@ fun ServiceRoute(
     ServiceScreen(
         state = state,
         onAddVehicle = onAddVehicle,
-        onAddReminder = { viewModel.clearNotice(); showReminderDialog = true },
+        onAddReminder = { viewModel.clearNotice(); reminderDraft = null; showReminderDialog = true },
         onAddActivity = { viewModel.clearNotice(); showActivityDialog = true },
         onCompleteReminder = viewModel::completeReminder,
-        onCreateRecommendationReminder = { viewModel.addReminder(it) },
+        onCreateRecommendationReminder = { viewModel.clearNotice(); reminderDraft = it; showReminderDialog = true },
         onClearNotice = viewModel::clearNotice,
     )
 
@@ -124,6 +137,10 @@ fun ServiceRoute(
             isSaving = saveState.isSaving,
             saveError = saveState.errorMessage,
             vehicle = activeVehicle,
+            initialRequest = reminderDraft,
+            lastOilReading = state.activities.filter { it.vehicleId == activeVehicle.id }.sortedByDescending { it.occurredAt }
+                .firstOrNull { log -> log.workItems.any { it.component == com.vehiclemaintenancepro.domain.model.MaintenanceComponent.EngineOil &&
+                    it.action == com.vehiclemaintenancepro.domain.model.MaintenanceAction.Replace } }?.odometerKm,
             onDismiss = { if (!saveState.isSaving) showReminderDialog = false },
             onSubmit = { request ->
                 viewModel.addReminder(request) { showReminderDialog = false }
@@ -156,7 +173,20 @@ fun ServiceScreen(
 ) {
     var section by rememberSaveable { mutableStateOf("Riwayat") }
     var categoryFilter by rememberSaveable { mutableStateOf("Semua") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val uriHandler = LocalUriHandler.current
+    var showingReference by remember { mutableStateOf(false) }
+    if (showingReference) AlertDialog(
+        onDismissRequest = { showingReference = false },
+        title = { Text("Acuan perawatan PCX 160") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Buku PCX K1Z halaman 80–81: setelah servis awal, oli mesin 6.000 km/6 bulan; busi 12.000 km/12 bulan; filter udara 18.000 km/18 bulan; drive belt 24.000 km/24 bulan; oli gardan dan minyak rem 24.000 km/2 tahun; coolant 36.000 km/3 tahun.")
+            Text("Ini acuan pabrikan. Kondisi pemakaian dapat membutuhkan perawatan lebih cepat. Untuk oli 2.000 km, pilih target pribadi saat membuat pengingat. Interval khusus juga bisa disimpan saat mencatat pekerjaan.")
+            Text("Target dihitung dari pekerjaan terakhir yang sesuai. Tanpa riwayat, target awal perlu dikonfirmasi. Batas kilometer atau waktu yang tercapai lebih dulu berlaku.")
+        } },
+        confirmButton = { TextButton(onClick = { uriHandler.openUri("https://www.wahanahonda.com/assets/upload/buku_manual/honda-pcx.pdf") }) { Text("Buku PCX") } },
+        dismissButton = { TextButton(onClick = { showingReference = false }) { Text("Tutup") } },
+    )
     AppBackground {
         if (state.isLoading) {
             AppLoadingState()
@@ -172,22 +202,24 @@ fun ServiceScreen(
                 }.orEmpty()
             }
             val recommendations = remember(estimates, state.reminders) { estimates.filterNot { estimate -> state.reminders.any { it.title.equals(estimate.title, ignoreCase = true) } } }
-            val visibleActivities = remember(state.activities, categoryFilter) { state.activities.filter { categoryFilter == "Semua" || it.category?.label == categoryFilter } }
+            val visibleActivities = remember(state.activities, categoryFilter, searchQuery) {
+                val query = searchQuery.trim()
+                state.activities.filter { activity ->
+                    (categoryFilter == "Semua" || activity.category?.label == categoryFilter) &&
+                        (query.isBlank() || listOfNotNull(activity.title, activity.location, activity.description,
+                            activity.workItems.joinToString(" ") { "${it.component.label} ${it.description}" })
+                            .any { it.contains(query, ignoreCase = true) })
+                }
+            }
             LazyColumn(
                 contentPadding = PaddingValues(
                     start = Dimens.SpaceLg,
                     top = Dimens.SpaceLg,
                     end = Dimens.SpaceLg,
-                    bottom = Dimens.Space2Xl,
+                    bottom = Dimens.SpaceLg,
                 ),
-                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-            item {
-                PageHeader(
-                    title = "Servis",
-                    subtitle = "Catatan perawatan dan jadwal berikutnya.",
-                )
-            }
             state.notice?.let { notice ->
                 item {
                     NoticeCard(
@@ -224,24 +256,21 @@ fun ServiceScreen(
                     )
                 }
                 item {
-                    PrimaryTabRow(selectedTabIndex = if (section == "Riwayat") 0 else 1,
-                        containerColor = MaterialTheme.colorScheme.background) {
-                        listOf("Riwayat", "Jadwal").forEach { label ->
-                            Tab(selected = section == label, onClick = { section = label }, text = { Text(label) })
-                        }
-                    }
+                    FilterOptions(listOf("Riwayat", "Jadwal"), section, { it }, { section = it }, Modifier.fillMaxWidth())
                 }
                 if (section == "Jadwal") {
                     item {
-                        if (MaintenanceRecommendationEngine.isPcx160(activeVehicle)) {
-                            Text("Estimasi mengikuti catatan tiap komponen. KM atau tanggal yang tercapai lebih dulu menjadi batas perawatan.",
-                                style = MaterialTheme.typography.bodyMedium)
-                            TextButton(onClick = { uriHandler.openUri("https://www.wahanahonda.com/assets/upload/buku_manual/honda-pcx.pdf") }) {
-                                Text("Acuan Honda PCX • halaman 80–81")
+                        PanelCard(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text("Interval & acuan", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(if (MaintenanceRecommendationEngine.isPcx160(activeVehicle)) "PCX 160 • bisa disesuaikan" else "Gunakan buku kendaraanmu",
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (MaintenanceRecommendationEngine.isPcx160(activeVehicle)) IconButton(onClick = { showingReference = true }) {
+                                    Icon(Icons.Rounded.Info, "Acuan & pilihan interval", tint = MaterialTheme.colorScheme.primary)
+                                }
                             }
-                        } else {
-                            Text("Acuan model ini belum tersedia. Atur interval tiap komponen saat mencatat perawatan sesuai buku kendaraan.",
-                                style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 if (recommendations.isNotEmpty()) {
@@ -254,6 +283,7 @@ fun ServiceScreen(
                     ) { recommendation ->
                         RecommendationItem(
                             recommendation = recommendation,
+                            currentOdometerKm = activeVehicle.odometerKm,
                             onCreateReminder = {
                                 onCreateRecommendationReminder(
                                     recommendation.toReminderRequest(vehicleId = activeVehicle.id),
@@ -292,7 +322,40 @@ fun ServiceScreen(
                 }
                 }
                 if (section == "Riwayat") {
-                item { ChoiceRow(listOf("Semua") + ActivityCategory.entries.map { it.label }, categoryFilter, { it }) { categoryFilter = it } }
+                item {
+                    OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, singleLine = true,
+                        label = { Text("Cari riwayat servis") },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                        trailingIcon = { if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Rounded.Close, "Hapus pencarian") } },
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant))
+                }
+
+                if (searchQuery.isBlank() && categoryFilter == "Semua") {
+                    val next = estimates.firstOrNull { it.dueOdometerKm != null || it.dueDate != null }
+                    if (next != null) {
+                        item {
+                            PanelCard {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("Estimasi • ${next.title}", style = MaterialTheme.typography.titleSmall)
+                                        Text(listOfNotNull(next.dueOdometerKm?.let(Formatters::odometer), next.dueDate?.let(Formatters::date)).joinToString(" • "),
+                                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (next.lastActivityId != null && (next.dueDate?.let { !it.isAfter(LocalDate.now()) } == true || next.dueOdometerKm?.let { it <= activeVehicle.odometerKm } == true)) {
+                                        StatusPill("Jatuh tempo", containerColor = MaterialTheme.colorScheme.errorContainer,
+                                            contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                                    }
+                                }
+                                androidx.compose.material3.OutlinedButton(onClick = { section = "Jadwal" }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Text("Lihat jadwal") }
+                            }
+                        }
+                    }
+                }
+                item { FilterOptions(listOf("Semua") + ActivityCategory.entries.map { it.label }, categoryFilter, { it }, { categoryFilter = it }, Modifier.fillMaxWidth()) }
                 item {
                     SectionHeader(
                         title = "Riwayat perawatan",
@@ -355,8 +418,9 @@ private fun ActiveServiceVehicleCard(
             }
         }
         Spacer(modifier = Modifier.height(Dimens.SpaceMd))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm), verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
+        AppActionRow { actionModifier ->
             androidx.compose.material3.OutlinedButton(
+                modifier = actionModifier,
                 onClick = onAddReminder,
                 shape = MaterialTheme.shapes.small,
             ) {
@@ -364,7 +428,7 @@ private fun ActiveServiceVehicleCard(
                 Spacer(modifier = Modifier.width(Dimens.SpaceSm))
                 Text(text = "Pengingat")
             }
-            Button(onClick = onAddActivity, shape = MaterialTheme.shapes.small) {
+            Button(onClick = onAddActivity, modifier = actionModifier, shape = MaterialTheme.shapes.small) {
                 Text(text = "Catat aktivitas")
             }
         }
@@ -374,19 +438,34 @@ private fun ActiveServiceVehicleCard(
 @Composable
 private fun RecommendationItem(
     recommendation: MaintenanceRecommendation,
+    currentOdometerKm: Long,
     onCreateReminder: () -> Unit,
 ) {
+    var expanded by rememberSaveable(recommendation.title) { mutableStateOf(false) }
+    val overdue = recommendation.lastActivityId != null &&
+        (recommendation.dueDate?.let { !it.isAfter(LocalDate.now()) } == true ||
+            recommendation.dueOdometerKm?.let { it <= currentOdometerKm } == true)
     PanelCard(containerColor = MaterialTheme.colorScheme.surface) {
-        Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-            Text(text = recommendation.title, style = MaterialTheme.typography.titleMedium)
-            Text(text = recommendation.description, style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm), verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
-                recommendation.dueOdometerKm?.let { km -> StatusPill(text = Formatters.odometer(km)) }
-                recommendation.dueDate?.let { date -> StatusPill(text = Formatters.date(date)) }
-                if (recommendation.dueOdometerKm == null && recommendation.dueDate == null) Text("Lengkapi tanggal pekerjaan terakhir")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+            IconBadge(if (recommendation.type == ReminderType.OilChange) Icons.Rounded.Speed else Icons.Rounded.Build, null)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(recommendation.title, style = MaterialTheme.typography.titleMedium)
+                Text(if (recommendation.lastActivityId == null) "Konfirmasi riwayat & target" else if (overdue) "Jatuh tempo • perlu perhatian" else "Target perawatan berikutnya",
+                    style = MaterialTheme.typography.bodySmall, color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            TextButton(onClick = onCreateReminder, enabled = recommendation.dueOdometerKm != null || recommendation.dueDate != null) { Text("Buat pengingat") }
+        }
+        Spacer(Modifier.height(6.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            recommendation.dueOdometerKm?.let { StatusPill(Formatters.odometer(it)) }
+            recommendation.dueDate?.let { StatusPill(Formatters.date(it)) }
+        }
+        if (expanded) Text(recommendation.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppActionRow { actionModifier ->
+            androidx.compose.material3.OutlinedButton(onClick = { expanded = !expanded }, modifier = actionModifier, shape = MaterialTheme.shapes.small) {
+                Text(if (expanded) "Tutup detail" else "Detail interval")
+            }
+            FilledTonalButton(onClick = onCreateReminder, modifier = actionModifier, shape = MaterialTheme.shapes.small,
+                enabled = recommendation.dueOdometerKm != null || recommendation.dueDate != null) { Text("Buat pengingat") }
         }
     }
 }
@@ -449,26 +528,26 @@ private fun ActivityItem(activity: ActivityLog, estimates: List<MaintenanceRecom
         Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             StatusPill(activity.category?.label ?: "Catatan lama", containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
-            Text(activity.timeLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
                 Text(
                     text = activity.title,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
-            StatusPill(text = activity.odometerKm?.let(Formatters::odometer) ?: "KM belum dicatat",
-                containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface)
-        }
         Text(text = "Lokasi: ${activity.location ?: "Belum dicatat"}", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        activity.costAmount?.let { cost ->
-            Text(Formatters.currency(cost), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Surface(shape = MaterialTheme.shapes.extraSmall, color = MaterialTheme.colorScheme.surfaceVariant) {
+            FlowRow(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(activity.timeLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(activity.odometerKm?.let(Formatters::odometer) ?: "KM belum dicatat", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                activity.costAmount?.let { Text(Formatters.currency(it), style = MaterialTheme.typography.titleSmall) }
+            }
         }
         if (activity.workItems.isNotEmpty()) {
             Text(text = activity.workItems.joinToString(" • ") { it.component.label },
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = { expanded = !expanded }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+            androidx.compose.material3.OutlinedButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) {
                 Text(if (expanded) "Tutup rincian" else "Rincian pekerjaan (${activity.workItems.size})")
             }
         }
@@ -529,17 +608,19 @@ private fun NoticeCard(
 }
 
 @Composable
-private fun AddReminderDialog(
+internal fun AddReminderDialog(
     isSaving: Boolean,
     saveError: String?,
     vehicle: Vehicle,
     onDismiss: () -> Unit,
     onSubmit: (MaintenanceReminderCreateRequest) -> Unit,
+    initialRequest: MaintenanceReminderCreateRequest? = null,
+    lastOilReading: Long? = null,
 ) {
-    var type by rememberSaveable { mutableStateOf(ReminderType.Service) }
-    var title by rememberSaveable { mutableStateOf(type.defaultTitle()) }
-    var dueDate by rememberSaveable { mutableStateOf(LocalDate.now().plusMonths(1).toString()) }
-    var dueOdometer by rememberSaveable { mutableStateOf("") }
+    var type by rememberSaveable { mutableStateOf(initialRequest?.type ?: ReminderType.Service) }
+    var title by rememberSaveable { mutableStateOf(initialRequest?.title ?: type.defaultTitle()) }
+    var dueDate by rememberSaveable { mutableStateOf(if (initialRequest != null) initialRequest.dueDate?.toString().orEmpty() else LocalDate.now().plusMonths(1).toString()) }
+    var dueOdometer by rememberSaveable { mutableStateOf(initialRequest?.dueOdometerKm?.toString().orEmpty()) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     AppFormDialog(
@@ -563,6 +644,17 @@ private fun AddReminderDialog(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
+                if (initialRequest != null) {
+                    Text("Periksa target sebelum menyimpan. KM dan tanggal dapat diubah sesuai pemakaian.", style = MaterialTheme.typography.bodySmall)
+                    if (initialRequest.title.contains("Oli mesin", ignoreCase = true) && lastOilReading != null) {
+                        Text("Oli terakhir: ${Formatters.odometer(lastOilReading)}", style = MaterialTheme.typography.bodySmall)
+                        AppActionRow { actionModifier ->
+                            androidx.compose.material3.OutlinedButton(modifier = actionModifier, shape = MaterialTheme.shapes.small, onClick = { dueOdometer = (lastOilReading + 2_000).toString(); dueDate = "" }) { Text("Pilihan 2.000 km") }
+                            androidx.compose.material3.OutlinedButton(modifier = actionModifier, shape = MaterialTheme.shapes.small, onClick = { dueOdometer = initialRequest.dueOdometerKm?.toString().orEmpty(); dueDate = initialRequest.dueDate?.toString().orEmpty() }) { Text("Acuan pabrikan") }
+                        }
+                        Text("Pilihan 2.000 km memakai batas KM saja; tambahkan tanggal jika diperlukan.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 ChoiceRow(
                     values = ReminderType.entries,
                     selected = type,

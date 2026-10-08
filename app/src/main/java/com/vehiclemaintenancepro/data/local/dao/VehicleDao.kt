@@ -9,6 +9,24 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VehicleDao {
+    @Query("SELECT * FROM vehicles ORDER BY id")
+    suspend fun getAllForBackup(): List<VehicleEntity>
+
+    @Query("DELETE FROM vehicles")
+    suspend fun clearForRestore()
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertBackup(rows: List<VehicleEntity>)
+
+    @Query("SELECT * FROM vehicles WHERE id = :vehicleId AND is_archived = 0")
+    suspend fun getVehicle(vehicleId: Long): VehicleEntity?
+
+    @Query("UPDATE vehicles SET engine_number = :engineNumber, frame_number = :frameNumber, otr_price = :otrPrice, purchase_price = :purchasePrice, dealer = :dealer, order_date_epoch_day = :orderDate, purchase_date_epoch_day = :deliveryDate, updated_at_millis = :now WHERE id = :vehicleId AND is_archived = 0")
+    suspend fun updateDetails(vehicleId: Long, engineNumber: String?, frameNumber: String?, otrPrice: Long?, purchasePrice: Long?, dealer: String?, orderDate: Long?, deliveryDate: Long?, now: Long): Int
+
+    @Query("UPDATE vehicles SET accessories_json = :value, updated_at_millis = :now WHERE id = :vehicleId AND is_archived = 0")
+    suspend fun updateAccessories(vehicleId: Long, value: String, now: Long): Int
+
     @Query("UPDATE vehicles SET odometer_km = :odometerKm, updated_at_millis = :updatedAtMillis WHERE id = :vehicleId AND is_archived = 0 AND odometer_km <= :odometerKm")
     suspend fun updateOdometer(vehicleId: Long, odometerKm: Long, updatedAtMillis: Long): Int
 

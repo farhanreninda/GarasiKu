@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.vehiclemaintenancepro.core.common.SaveState
 import com.vehiclemaintenancepro.core.constant.AppConstants
 import com.vehiclemaintenancepro.domain.model.VehicleCreateRequest
+import com.vehiclemaintenancepro.domain.model.VehicleAccessory
+import com.vehiclemaintenancepro.domain.model.VehicleDetailsUpdateRequest
 import com.vehiclemaintenancepro.domain.repository.VehicleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -83,6 +85,15 @@ class VehiclesViewModel @Inject constructor(
         notice.update { null }
         if (!saving.value.isSaving) saving.value = SaveState()
     }
+
+    fun updateDetails(id: Long, request: VehicleDetailsUpdateRequest, onSuccess: () -> Unit) =
+        runOperation("Data pembelian diperbarui", onSuccess) { vehicleRepository.updateDetails(id, request) }
+
+    fun saveAccessory(id: Long, item: VehicleAccessory, onSuccess: () -> Unit) =
+        runOperation("Aksesori disimpan", onSuccess) { vehicleRepository.saveAccessory(id, item) }
+
+    fun deleteAccessory(id: Long, accessoryId: String, onSuccess: () -> Unit) =
+        runOperation("Aksesori dihapus", onSuccess) { vehicleRepository.deleteAccessory(id, accessoryId) }
 
     private fun runOperation(
         successMessage: String,

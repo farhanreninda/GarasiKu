@@ -51,7 +51,7 @@ internal fun MaintenanceWorkEditor(items: List<MaintenanceWorkItem>, enabled: Bo
         ChoiceRow(MaintenanceAction.entries, action, { it.label }) { actionName = it.name }
         OutlinedTextField(value = detail, onValueChange = { detail = it }, label = { Text("Merek / rincian komponen") },
             modifier = Modifier.fillMaxWidth(), enabled = enabled)
-        TextButton(onClick = { showIntervals = !showIntervals }, enabled = enabled) { Text(if (showIntervals) "Tutup interval khusus" else "Atur interval khusus (opsional)") }
+        OutlinedButton(onClick = { showIntervals = !showIntervals }, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(if (showIntervals) "Tutup interval khusus" else "Atur interval khusus (opsional)") }
         if (showIntervals) {
         Text("Kosongkan untuk memakai acuan kendaraan yang tersedia.", style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(value = intervalKm, onValueChange = { intervalKm = it.filter(Char::isDigit) },
@@ -64,7 +64,7 @@ internal fun MaintenanceWorkEditor(items: List<MaintenanceWorkItem>, enabled: Bo
         val valid = (intervalKm.isBlank() || intervalKm.toLongOrNull()?.let { it > 0 } == true) &&
             (intervalMonths.isBlank() || intervalMonths.toIntOrNull()?.let { it in 1..1200 } == true)
         if (!valid) Text("Interval harus positif; maksimal 1.200 bulan.", color = MaterialTheme.colorScheme.error)
-        OutlinedButton(enabled = enabled && valid, onClick = {
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = enabled && valid, onClick = {
             val item = MaintenanceWorkItem(component, action, detail.trim(), intervalKm.toLongOrNull(), intervalMonths.toIntOrNull())
             onChange(items.filterNot { it.component == component } + item)
             detail = ""

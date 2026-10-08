@@ -18,16 +18,18 @@ import kotlinx.coroutines.flow.stateIn
 class NotificationsViewModel @Inject constructor(
     vehicleRepository: VehicleRepository,
     maintenanceRepository: MaintenanceRepository,
+    settingsRepository: com.vehiclemaintenancepro.domain.repository.SettingsRepository,
 ) : ViewModel() {
     val uiState = combine(
         vehicleRepository.observeVehicles(),
         maintenanceRepository.observePendingReminders(),
-    ) { vehicles, reminders ->
+        settingsRepository.observeSettings(),
+    ) { vehicles, reminders, settings ->
         val activeVehicle = vehicles.firstOrNull { it.isActive } ?: vehicles.firstOrNull()
         val activeReminders = activeVehicle?.let { vehicle ->
             reminders
                 .filter { it.vehicleId == vehicle.id }
-                .filter { ReminderAlertPolicy.shouldAlert(it, vehicle) }
+                .filter { ReminderAlertPolicy.shouldAlert(it, vehicle, settings = settings) }
                 .sortedWith(reminderComparator)
         }.orEmpty()
 
@@ -35,6 +37,7 @@ class NotificationsViewModel @Inject constructor(
             isLoading = false,
             activeVehicle = activeVehicle,
             reminders = activeReminders,
+            notificationsEnabled = settings.notificationsEnabled,
         )
     }
         .catch { throwable ->

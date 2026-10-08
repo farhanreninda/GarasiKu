@@ -21,7 +21,7 @@ fun DateField(value: String, onValueChange: (String) -> Unit, label: String, mod
             label = { Text(label) }, placeholder = { Text("Pilih tanggal") }, enabled = enabled,
             modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small,
             trailingIcon = { IconButton(onClick = { open = true }, enabled = enabled) { Icon(Icons.Rounded.CalendarToday, "Pilih $label") } })
-        if (optional && value.isNotBlank()) TextButton(onClick = { onValueChange("") }, enabled = enabled) { Text("Kosongkan tanggal") }
+        if (optional && value.isNotBlank()) OutlinedButton(onClick = { onValueChange("") }, enabled = enabled, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Text("Kosongkan tanggal") }
     }
     if (open) {
         val picker = rememberDatePickerState(initialSelectedDateMillis = (date ?: LocalDate.now()).toEpochDay() * 86_400_000L)

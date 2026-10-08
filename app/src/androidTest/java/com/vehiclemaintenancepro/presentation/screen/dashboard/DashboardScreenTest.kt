@@ -50,7 +50,7 @@ class DashboardScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Mobil").assertIsDisplayed()
+        composeRule.onNodeWithText("Mobil", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("36.000 km").performScrollTo().assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("100/100").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Aktivitas terakhir").fetchSemanticsNodes().isEmpty())

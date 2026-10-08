@@ -51,4 +51,12 @@ data class VehicleEntity(
     val createdAtMillis: Long,
     @ColumnInfo(name = "updated_at_millis")
     val updatedAtMillis: Long,
+    @ColumnInfo(name = "otr_price")
+    val otrPrice: Long? = null,
+    @ColumnInfo(name = "dealer")
+    val dealer: String? = null,
+    @ColumnInfo(name = "order_date_epoch_day")
+    val orderDateEpochDay: Long? = null,
+    @ColumnInfo(name = "accessories_json", defaultValue = "'[]'")
+    val accessoriesJson: String = "[]",
 )

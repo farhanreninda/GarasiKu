@@ -34,7 +34,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -74,6 +75,7 @@ import com.vehiclemaintenancepro.presentation.screen.settings.SettingsRoute
 import com.vehiclemaintenancepro.presentation.screen.statistics.StatisticsRoute
 import com.vehiclemaintenancepro.presentation.screen.vehicles.AddVehicleDialogRoute
 import com.vehiclemaintenancepro.presentation.screen.vehicles.VehiclesRoute
+import com.vehiclemaintenancepro.presentation.component.AppTopBar
 
 @Composable
 fun VehicleMaintenanceRoot(
@@ -122,6 +124,15 @@ fun VehicleMaintenanceRoot(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            AppTopBar(
+                title = if (currentDestination?.route == AppRoute.Notifications.route) "Pengingat"
+                    else stringResource(bottomNavRoutes.firstOrNull { it.route == selectedRoute }?.labelRes ?: R.string.nav_dashboard),
+                onNotifications = { openRoute(AppRoute.Notifications.route) },
+                onProfile = { openRoute(AppRoute.Settings.route) },
+                onBack = if (currentDestination?.route == AppRoute.Notifications.route) ({ navController.popBackStack(); Unit }) else null,
+            )
+        },
         bottomBar = {
             VehicleMaintenanceBottomBar(
                 currentRoute = selectedRoute,
@@ -175,6 +186,7 @@ fun VehicleMaintenanceRoot(
             composable(AppRoute.Statistics.route) {
                 StatisticsRoute(
                     viewModel = statisticsViewModel,
+                    onOpenVehicles = { openRoute(AppRoute.Vehicles.route) },
                     onOpenService = { vehicleId ->
                         if (vehicleId == null) openRoute(AppRoute.Service.route)
                         else vehiclesViewModel.setActiveVehicle(vehicleId) { openRoute(AppRoute.Service.route) }
@@ -205,15 +217,15 @@ private fun VehicleMaintenanceBottomBar(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .navigationBarsPadding()
-            .padding(horizontal = 8.dp),
     ) {
         val rows = if (LocalDensity.current.fontScale > 1.6f && maxWidth < 600.dp) bottomNavRoutes.chunked(3) else listOf(bottomNavRoutes)
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 76.dp),
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            shape = RoundedCornerShape(0.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp,
@@ -222,7 +234,7 @@ private fun VehicleMaintenanceBottomBar(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 rows.forEach { destinations ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     destinations.forEach { destination ->
@@ -239,7 +251,7 @@ private fun VehicleMaintenanceBottomBar(
                                 .weight(1f)
                                 .heightIn(min = 60.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.colorScheme.surface)
                                 .selectable(
                                     selected = selected,
                                     role = Role.Tab,
@@ -250,15 +262,23 @@ private fun VehicleMaintenanceBottomBar(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
                         ) {
-                            Icon(
-                                imageVector = destination.icon,
-                                contentDescription = stringResource(destination.contentDescriptionRes),
-                                modifier = Modifier.size(24.dp),
-                                tint = itemColor,
-                            )
-                            Text(stringResource(destination.labelRes), style = MaterialTheme.typography.labelSmall,
+                            Box(
+                                modifier = Modifier.size(width = 52.dp, height = 32.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = if (selected) destination.selectedIcon else destination.icon,
+                                    contentDescription = stringResource(destination.contentDescriptionRes),
+                                    modifier = Modifier.size(22.dp),
+                                    tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else itemColor,
+                                )
+                            }
+                            Text(stringResource(destination.labelRes), style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                 color = itemColor, textAlign = TextAlign.Center,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 2.dp))
+                                modifier = Modifier.padding(horizontal = 2.dp))
                         }
                     }
                 }

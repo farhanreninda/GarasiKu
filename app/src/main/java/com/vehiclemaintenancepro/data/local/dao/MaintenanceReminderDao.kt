@@ -9,6 +9,15 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MaintenanceReminderDao {
+    @Query("SELECT * FROM maintenance_reminders ORDER BY id")
+    suspend fun getAllForBackup(): List<MaintenanceReminderEntity>
+
+    @Query("DELETE FROM maintenance_reminders")
+    suspend fun clearForRestore()
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertBackup(rows: List<MaintenanceReminderEntity>)
+
     @Query(
         """
         SELECT * FROM maintenance_reminders

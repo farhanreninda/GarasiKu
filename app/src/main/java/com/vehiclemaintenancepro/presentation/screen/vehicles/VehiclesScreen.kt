@@ -93,6 +93,11 @@ import com.vehiclemaintenancepro.domain.model.VehicleCatalog
 import com.vehiclemaintenancepro.domain.model.VehicleCreateRequest
 import com.vehiclemaintenancepro.domain.model.VehicleModelSpec
 import com.vehiclemaintenancepro.domain.model.VehicleType
+import com.vehiclemaintenancepro.presentation.component.AppActionRow
+import com.vehiclemaintenancepro.presentation.component.FilterOptions
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import com.vehiclemaintenancepro.presentation.component.AppBackground
 import com.vehiclemaintenancepro.presentation.component.AppLoadingState
 import com.vehiclemaintenancepro.presentation.component.DateField
@@ -108,6 +113,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.FlowRow
+import androidx.activity.compose.BackHandler
 
 @Composable
 fun AddVehicleDialogRoute(
@@ -132,13 +138,23 @@ fun VehiclesRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val saveState by viewModel.saveState.collectAsStateWithLifecycle()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var detailVehicleId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val detailVehicle = state.vehicles.firstOrNull { it.id == detailVehicleId }
+    BackHandler(detailVehicle != null) { detailVehicleId = null }
 
-    VehiclesScreen(
+    if (detailVehicle != null) {
+        VehicleOwnershipScreen(detailVehicle, saveState, onBack = { detailVehicleId = null },
+            onClearNotice = viewModel::clearNotice,
+            onSaveDetails = { request, done -> viewModel.updateDetails(detailVehicle.id, request, done) },
+            onSaveAccessory = { item, done -> viewModel.saveAccessory(detailVehicle.id, item, done) },
+            onDeleteAccessory = { id, done -> viewModel.deleteAccessory(detailVehicle.id, id, done) })
+    } else VehiclesScreen(
         state = state,
         onAddVehicle = { viewModel.clearNotice(); showAddDialog = true },
         onSetActiveVehicle = { viewModel.setActiveVehicle(it) },
         onArchiveVehicle = viewModel::archiveVehicle,
         onClearNotice = viewModel::clearNotice,
+        onOpenDetails = { detailVehicleId = it },
     )
 
     if (showAddDialog) {
@@ -160,7 +176,12 @@ fun VehiclesScreen(
     onSetActiveVehicle: (Long) -> Unit,
     onArchiveVehicle: (Long) -> Unit,
     onClearNotice: () -> Unit,
+    onOpenDetails: (Long) -> Unit = {},
 ) {
+    var typeFilter by rememberSaveable { mutableStateOf("Semua") }
+    val visibleVehicles = remember(state.vehicles, typeFilter) {
+        state.vehicles.filter { typeFilter == "Semua" || it.vehicleType.name == typeFilter }
+    }
     AppBackground {
         if (state.isLoading) {
             AppLoadingState()
@@ -170,14 +191,14 @@ fun VehiclesScreen(
                     start = Dimens.SpaceLg,
                     top = Dimens.SpaceLg,
                     end = Dimens.SpaceLg,
-                    bottom = Dimens.Space2Xl,
+                    bottom = Dimens.SpaceLg,
                 ),
-                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item {
                     PageHeader(
-                        title = "Garasi",
-                        subtitle = "${state.vehicles.size} kendaraan yang dipantau.",
+                        title = "Garasi saya",
+                        subtitle = "Kelola mobil & motor yang kamu pantau.",
                         actionLabel = "Tambah",
                         onAction = onAddVehicle,
                     )
@@ -210,17 +231,39 @@ fun VehiclesScreen(
                     }
                 } else {
                     item {
-                        SectionHeader(title = "Kendaraan saya")
+                        FilterOptions(listOf("Semua") + VehicleType.entries.map { it.name }, typeFilter,
+                            label = { key ->
+                                val type = VehicleType.entries.firstOrNull { it.name == key }
+                                if (type == null) "Semua (${state.vehicles.size})"
+                                else "${type.displayLabel()} (${state.vehicles.count { it.vehicleType == type }})"
+                            }, onSelected = { typeFilter = it }, modifier = Modifier.fillMaxWidth())
+                    }
+                    if (visibleVehicles.isEmpty()) {
+                        item { PanelCard { Text("Tidak ada kendaraan untuk pilihan ini", style = MaterialTheme.typography.titleMedium) } }
                     }
                     items(
-                        items = state.vehicles,
+                        items = visibleVehicles,
                         key = { vehicle -> vehicle.id },
                     ) { vehicle ->
                         VehicleListItem(
                             vehicle = vehicle,
                             onSetActiveVehicle = { onSetActiveVehicle(vehicle.id) },
                             onArchiveVehicle = { onArchiveVehicle(vehicle.id) },
+                            onOpenDetails = { onOpenDetails(vehicle.id) },
                         )
+                    }
+                    item {
+                        PanelCard {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                IconBadge(Icons.Rounded.DirectionsCar, null)
+                                Column(Modifier.weight(1f)) {
+                                    Text("Punya kendaraan lain?", style = MaterialTheme.typography.titleSmall)
+                                    Text("Simpan riwayatnya di garasi.", style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            Button(onClick = onAddVehicle, modifier = Modifier.fillMaxWidth()) { Text("Tambah kendaraan") }
+                        }
                     }
                 }
             }
@@ -233,9 +276,11 @@ private fun VehicleListItem(
     vehicle: Vehicle,
     onSetActiveVehicle: () -> Unit,
     onArchiveVehicle: () -> Unit,
+    onOpenDetails: () -> Unit,
 ) {
     var showHideConfirmation by remember { mutableStateOf(false) }
     var expanded by rememberSaveable(vehicle.id) { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
 
     if (showHideConfirmation) {
         AlertDialog(
@@ -290,28 +335,40 @@ private fun VehicleListItem(
                 if (vehicle.isActive) StatusPill("Dipilih", containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
                 StatusPill(text = vehicle.vehicleType.displayLabel())
                 vehicle.year?.let { StatusPill(text = it.toString()) }
-                StatusPill(text = vehicle.transmissionType.displayLabel())
             }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Odometer terakhir", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(text = Formatters.odometer(vehicle.odometerKm), style = MaterialTheme.typography.headlineSmall)
+            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
+                FlowRow(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Odometer", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(Formatters.odometer(vehicle.odometerKm), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Transmisi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(vehicle.transmissionType.displayLabel(), style = MaterialTheme.typography.titleSmall)
+                    }
+                }
             }
             if (expanded) {
                 Text("BBM: ${when (vehicle.fuelType) { FuelType.Gasoline -> "Bensin"; FuelType.Diesel -> "Diesel"; FuelType.Electric -> "Listrik"; FuelType.Hybrid -> "Hybrid"; FuelType.Lpg -> "LPG"; FuelType.Other -> "Lainnya"; FuelType.Unknown -> "Belum dicatat" }}", style = MaterialTheme.typography.bodyMedium)
                 vehicle.color?.takeIf { it.isNotBlank() }?.let { Text("Warna: $it", style = MaterialTheme.typography.bodyMedium) }
                 vehicle.note?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-            ) {
-                if (!vehicle.isActive) {
-                    androidx.compose.material3.FilledTonalButton(onClick = onSetActiveVehicle, shape = MaterialTheme.shapes.small) {
-                        Text(text = "Tampilkan")
-                    }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("${vehicle.accessories.size} aksesori", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    androidx.compose.material3.OutlinedButton(onClick = onOpenDetails, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Text("Pembelian & aksesori") }
                 }
-                TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Tutup detail" else "Detail kendaraan") }
-                TextButton(onClick = { showHideConfirmation = true }) {
-                    Text(text = "Sembunyikan")
+                Box {
+                    IconButton(onClick = { menuOpen = true }) { Icon(Icons.Rounded.MoreVert, "Opsi kendaraan") }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (!vehicle.isActive) DropdownMenuItem(text = { Text("Tampilkan") },
+                            onClick = { menuOpen = false; onSetActiveVehicle() })
+                        DropdownMenuItem(text = { Text(if (expanded) "Tutup detail" else "Detail kendaraan") },
+                            onClick = { menuOpen = false; expanded = !expanded })
+                        DropdownMenuItem(text = { Text("Sembunyikan") },
+                            onClick = { menuOpen = false; showHideConfirmation = true })
+                    }
                 }
             }
         }
@@ -594,20 +651,14 @@ private fun DialogActions(
     onDismiss: () -> Unit,
     onSubmit: () -> Unit,
 ) {
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd, Alignment.End),
-        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-    ) {
-        TextButton(onClick = onDismiss, enabled = !isSaving) {
+    AppActionRow(Modifier.padding(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 20.dp)) { actionModifier ->
+        TextButton(onClick = onDismiss, enabled = !isSaving, modifier = actionModifier) {
             Text(text = "Batal")
         }
         Button(
             enabled = !isSaving,
             onClick = onSubmit,
-            modifier = Modifier.heightIn(min = 48.dp),
+            modifier = actionModifier,
             shape = MaterialTheme.shapes.small,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,

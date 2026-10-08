@@ -20,4 +20,8 @@ data class Vehicle(
     val purchaseDate: LocalDate?,
     val note: String?,
     val isActive: Boolean,
+    val otrPrice: Long? = null,
+    val dealer: String? = null,
+    val orderDate: LocalDate? = null,
+    val accessories: List<VehicleAccessory> = emptyList(),
 )

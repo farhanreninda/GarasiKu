@@ -20,6 +20,29 @@ import org.junit.Test
 class MaintenanceScreensTest {
     @get:Rule val composeRule = createComposeRule()
 
+    @Test fun historySearchMatchesWorkshopAndComponentNotes() {
+        val selected = vehicle()
+        val activity = ActivityLog(1, selected.id, "Perawatan mesin", null, 100_000, Instant.now(),
+            ActivityCategory.Service, 100, "Bengkel Plered", listOf(MaintenanceWorkItem(MaintenanceComponent.EngineOil, MaintenanceAction.Replace, "Shell 10W-40")))
+        composeRule.setContent {
+            VehicleMaintenanceProTheme(darkTheme = false) {
+                ServiceScreen(ServiceUiState(isLoading = false, vehicles = listOf(selected), activeVehicle = selected, activities = listOf(activity)),
+                    {}, {}, {}, {}, {}, {})
+            }
+        }
+        composeRule.onNodeWithText("Cari riwayat servis").performTextInput("PLERED")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        composeRule.onNodeWithText("Perawatan mesin").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Cari riwayat servis").performScrollTo().performTextReplacement("Shell")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        composeRule.onNodeWithText("Perawatan mesin").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Cari riwayat servis").performScrollTo().performTextReplacement("tidak ditemukan")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        composeRule.onNodeWithText("Belum ada catatan untuk kategori ini").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Hapus pencarian").performScrollTo().performClick()
+        composeRule.onNodeWithText("Perawatan mesin").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun maintenanceHistoryFiltersCategoriesAndShowsComponentForecasts() {
         val pcx = vehicle().copy(vehicleType = VehicleType.Motorcycle, brand = "Honda", model = "PCX 160 CBS", year = 2023, odometerKm = 19_200)
         val activity = ActivityLog(1, 1, "Servis PCX", null, 124_552, Instant.parse("2026-03-07T05:00:00Z"),
@@ -82,7 +105,9 @@ class MaintenanceScreensTest {
         composeRule.onAllNodesWithText("Rp150.000")[0].assertIsDisplayed()
         composeRule.onNodeWithText("QC 1234").performClick()
         assertEquals(1L, selection)
-        composeRule.onNodeWithText("Catat biaya di Servis").performScrollTo().performClick()
+        composeRule.onNode(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange))
+            .performScrollToNode(hasText("Catat biaya di Servis"))
+        composeRule.onNodeWithText("Catat biaya di Servis").performClick()
         assertTrue(openedService)
     }
 
@@ -100,12 +125,12 @@ class MaintenanceScreensTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Ubah nama").performClick()
+        composeRule.onNodeWithContentDescription("Ubah nama").performClick()
         composeRule.onNodeWithText("Nama pengguna").performTextReplacement("Nama baru")
         composeRule.onNodeWithText("Simpan nama").performClick()
         assertEquals("Nama baru", saved)
         composeRule.onNodeWithText("Batal").performClick()
-        composeRule.onNodeWithText("Perbarui odometer").performScrollTo().performClick()
+        composeRule.onNodeWithContentDescription("Perbarui odometer").performScrollTo().performClick()
         assertTrue(openedOdometer)
     }
 
@@ -119,6 +144,32 @@ class MaintenanceScreensTest {
         }
         composeRule.onNodeWithText("Tambah kendaraan").performClick()
         assertTrue(added)
+    }
+
+    @Test fun oilReminderPresetUsesLastOilMileageAndKeepsTargetsEditable() {
+        var submitted: MaintenanceReminderCreateRequest? = null
+        val pcx = vehicle().copy(vehicleType = VehicleType.Motorcycle, brand = "Honda", model = "PCX 160 CBS", year = 2023, odometerKm = 19_537)
+        composeRule.setContent {
+            VehicleMaintenanceProTheme(darkTheme = false) {
+                com.vehiclemaintenancepro.presentation.screen.service.AddReminderDialog(
+                    isSaving = false, saveError = null, vehicle = pcx, onDismiss = {}, onSubmit = { submitted = it },
+                    initialRequest = MaintenanceReminderCreateRequest(1, ReminderType.OilChange, "Ganti Oli mesin", java.time.LocalDate.of(2027, 3, 12), 25_537),
+                    lastOilReading = 19_537)
+            }
+        }
+        composeRule.onNodeWithText("Pilihan 2.000 km").performScrollTo().performClick()
+        composeRule.onNodeWithText("21537").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Simpan pengingat").performClick()
+        composeRule.runOnIdle {
+            assertEquals(21_537L, submitted?.dueOdometerKm)
+            assertEquals(null, submitted?.dueDate)
+        }
+        composeRule.onNodeWithText("Acuan pabrikan").performScrollTo().performClick()
+        composeRule.onNodeWithText("Simpan pengingat").performClick()
+        composeRule.runOnIdle {
+            assertEquals(25_537L, submitted?.dueOdometerKm)
+            assertEquals(java.time.LocalDate.of(2027, 3, 12), submitted?.dueDate)
+        }
     }
 
     private fun vehicle() = Vehicle(1L, VehicleType.Car, null, "Toyota", "Raize", 2024, "QC 1234", null, null, null, TransmissionType.Cvt, FuelType.Gasoline, 36_000L, null, null, null, true)

@@ -21,7 +21,7 @@ object MaintenanceRecommendationEngine {
 
     fun isPcx160(vehicle: Vehicle): Boolean = vehicle.vehicleType == VehicleType.Motorcycle &&
         vehicle.brand.equals("Honda", ignoreCase = true) && vehicle.model.contains("PCX", ignoreCase = true) &&
-        vehicle.year in 2021..2024
+        vehicle.model.contains("160", ignoreCase = true) && vehicle.year in 2021..2024
 
     fun recommendationsFor(
         vehicle: Vehicle,
@@ -60,14 +60,14 @@ object MaintenanceRecommendationEngine {
             val custom = records.firstOrNull { log -> log.workItems.any { it.component == component &&
                 (it.intervalKm != null || it.intervalMonths != null) } } != null
             MaintenanceRecommendation(
-                title = if (component == MaintenanceComponent.RoutineService) "Servis berkala" else "${interval.action.label} ${component.label}",
+                title = if (component == MaintenanceComponent.RoutineService) "Servis berkala" else if (component == MaintenanceComponent.Cvt && interval.action == MaintenanceAction.Inspect) "Periksa CVT / drive belt" else "${interval.action.label} ${component.label}",
                 description = buildString {
-                    append(if (custom) "Interval pilihan pengguna" else "Acuan Honda PCX: ")
-                    if (!custom) append(listOfNotNull(interval.km?.let { "$it km" }, interval.months?.let { "$it bulan" }).joinToString(" / "))
+                    append(if (custom) "Interval pilihan pengguna: " else "Acuan Honda PCX: ")
+                    append(listOfNotNull(interval.km?.let { "$it km" }, interval.months?.let { "$it bulan" }).joinToString(" / "))
                     append(". ")
                     if (last == null) append("Belum ada catatan pekerjaan ini; periksa riwayat dan kondisi.")
                     else append("Dihitung dari catatan terakhir. Berlaku saat batas KM atau waktu tercapai lebih dulu.")
-                    if (dueDate?.isBefore(today) == true || dueKm?.let { vehicle.odometerKm >= it } == true) append(" Sudah jatuh tempo.")
+                    if (last != null && (dueDate?.let { !it.isAfter(today) } == true || dueKm?.let { vehicle.odometerKm >= it } == true)) append(" Sudah jatuh tempo.")
                 },
                 type = if (component in listOf(MaintenanceComponent.EngineOil, MaintenanceComponent.FinalDriveOil)) ReminderType.OilChange else ReminderType.Service,
                 dueOdometerKm = dueKm,

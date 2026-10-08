@@ -7,5 +7,6 @@ data class NotificationsUiState(
     val isLoading: Boolean = true,
     val activeVehicle: Vehicle? = null,
     val reminders: List<MaintenanceReminder> = emptyList(),
+    val notificationsEnabled: Boolean = true,
     val errorMessage: String? = null,
 )

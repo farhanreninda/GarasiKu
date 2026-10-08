@@ -21,7 +21,7 @@ class MaintenanceJourneyTest {
         assumeTrue("This journey writes sample data only in the isolated QC application", BuildConfig.APPLICATION_ID.endsWith(".qc"))
         val plate = "QC ${System.currentTimeMillis() % 1_000_000}"
         val database = Room.databaseBuilder(composeRule.activity, VehicleMaintenanceDatabase::class.java, AppConstants.DATABASE_NAME)
-            .addMigrations(VehicleMaintenanceDatabase.MIGRATION_1_2, VehicleMaintenanceDatabase.MIGRATION_2_3, VehicleMaintenanceDatabase.MIGRATION_3_4).build()
+            .addMigrations(VehicleMaintenanceDatabase.MIGRATION_1_2, VehicleMaintenanceDatabase.MIGRATION_2_3, VehicleMaintenanceDatabase.MIGRATION_3_4, VehicleMaintenanceDatabase.MIGRATION_4_5).build()
         val previousVehicle = runBlocking { database.vehicleDao().getActiveVehicleId() }
         try {
         composeRule.waitUntil(10_000) { composeRule.onAllNodesWithContentDescription("Tambah kendaraan").fetchSemanticsNodes().isNotEmpty() }
@@ -42,7 +42,7 @@ class MaintenanceJourneyTest {
         if (composeRule.onAllNodes(selector).fetchSemanticsNodes().isNotEmpty()) {
             composeRule.onNode(selector).performScrollTo().performClick()
         }
-        composeRule.waitUntil(10_000) { composeRule.onAllNodesWithText("Toyota Avanza / $plate").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(10_000) { composeRule.onAllNodesWithText("Toyota Avanza").fetchSemanticsNodes().isNotEmpty() }
 
         composeRule.onNodeWithContentDescription("Buka profil").performClick()
         composeRule.onNodeWithText("Perbarui odometer").performScrollTo().performClick()

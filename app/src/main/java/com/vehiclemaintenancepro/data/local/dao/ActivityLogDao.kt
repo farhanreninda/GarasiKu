@@ -9,6 +9,15 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ActivityLogDao {
+    @Query("SELECT * FROM activity_logs ORDER BY id")
+    suspend fun getAllForBackup(): List<ActivityLogEntity>
+
+    @Query("DELETE FROM activity_logs")
+    suspend fun clearForRestore()
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertBackup(rows: List<ActivityLogEntity>)
+
     @Query("SELECT * FROM activity_logs WHERE occurred_at_millis >= :startMillis AND occurred_at_millis < :endMillis AND cost_amount IS NOT NULL ORDER BY occurred_at_millis DESC")
     fun observeExpensesBetween(startMillis: Long, endMillis: Long): Flow<List<ActivityLogEntity>>
 

@@ -84,6 +84,9 @@ class DashboardViewModelTest {
     }
 
     private class FakeVehicleRepository : VehicleRepository {
+        override suspend fun updateDetails(vehicleId: Long, request: com.vehiclemaintenancepro.domain.model.VehicleDetailsUpdateRequest) = Unit
+        override suspend fun saveAccessory(vehicleId: Long, item: com.vehiclemaintenancepro.domain.model.VehicleAccessory) = Unit
+        override suspend fun deleteAccessory(vehicleId: Long, accessoryId: String) = Unit
         override fun observeVehicles(): Flow<List<Vehicle>> = emptyFlow()
 
         override fun observeActiveVehicle(): Flow<Vehicle?> = emptyFlow()
